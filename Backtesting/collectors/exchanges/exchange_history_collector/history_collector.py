@@ -106,7 +106,16 @@ class ExchangeHistoryDataCollector(collector.AbstractExchangeHistoryCollector):
     async def get_ohlcv_history(self, exchange, symbol, time_frame):
         # use time_frame_sec to add time to save the candle closing time
         time_frame_sec = commons_enums.TimeFramesMinutes[time_frame] * commons_constants.MINUTE_TO_SECONDS
-        candles = await self.exchange.get_symbol_prices(symbol, time_frame)
+        
+        since = 0
+        candles = await self.exchange.get_symbol_prices(symbol, time_frame, limit=500, since=since)
+
+        while since != candles[-1][0]:
+            since = candles[-1][0]
+            candles += await self.exchange.get_symbol_prices(symbol, time_frame, limit=1000, since=since)
+            self.logger.info(f"Timestamp: {since}")
+
+            
         self.exchange.uniformize_candles_if_necessary(candles)
         await self.save_ohlcv(exchange=exchange,
                               cryptocurrency=self.exchange_manager.exchange.get_pair_cryptocurrency(symbol),
